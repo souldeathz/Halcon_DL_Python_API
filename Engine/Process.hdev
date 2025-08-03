@@ -3,8 +3,8 @@
 <procedure name="main">
 <interface/>
 <body>
-<l>read_image (Image, 'C:/Users/redon/Desktop/Segmentation_dataset/pill_bag/pill_bag_002.png')</l>
-<l>read_dl_model ('C:/DL_Learning_Segmentation_Class_For_server/DLModel/Pill_segmentation.hdl', DLModelHandle)</l>
+<l>read_image (Image, 'pill_bag/pill_bag_001.png')</l>
+<l>read_dl_model ('DL_Learning_Segmentation_Class_For_server/DLModel/Pill_segmentation.hdl', DLModelHandle)</l>
 <c></c>
 <l>create_dl_preprocess_param_from_model (DLModelHandle, 'none', 'full_domain', [], [], [], DLPreprocessParam)</l>
 <c></c>

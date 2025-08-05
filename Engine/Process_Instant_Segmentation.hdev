@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hdevelop file_version="1.2" halcon_version="24.11.1.0">
+<procedure name="main">
+<interface/>
+<body>
+<l>* read_image (Image, 'pill_bag/pill_bag_001.png')</l>
+<l>* read_dl_model ('DL_Learning_Segmentation_Class_For_server/DLModel/Pill_segmentation.hdl', DLModelHandle)</l>
+<c></c>
+<l>read_image (Image, 'C:/Users/redon/Downloads/Golf/frame_1750012123_358_json/img.png')</l>
+<l>read_dl_model ('C:/Users/redon/Downloads/Golf_DL/model_Training-250728-201143_opt.hdl', DLModelHandle)</l>
+<l>read_dict ('C:/Users/redon/Downloads/Golf_DL/model_Training-250728-201143_opt_dl_preprocess_params.hdict', [], [], DLPreprocessParam)</l>
+<c></c>
+<l>get_dl_model_param (DLModelHandle, 'class_ids', ClassIds)</l>
+<l>get_dl_model_param (DLModelHandle, 'class_names', ClassNames)</l>
+<l>confident_score := 0.9</l>
+<l>create_dl_preprocess_param_from_model (DLModelHandle, 'none', 'full_domain', [], [], [], DLPreprocessParam)</l>
+<c></c>
+<l>gen_dl_samples_from_images (Image, DLSampleInference)</l>
+<c></c>
+<l>preprocess_dl_samples (DLSampleInference, DLPreprocessParam)</l>
+<c></c>
+<l>apply_dl_model (DLModelHandle, DLSampleInference, [], DLResult)</l>
+<c></c>
+<l>get_image_size (Image, Width, Height)</l>
+<l>get_dl_model_param (DLModelHandle, 'image_width', DL_image_width)</l>
+<l>get_dl_model_param (DLModelHandle, 'image_height', DL_image_height)</l>
+<l>gen_image_const (Image_const, 'byte', DL_image_width, DL_image_height)</l>
+<l>zoom_image_factor_width :=(Width*1.0) /  DL_image_width </l>
+<l>zoom_image_factor_height :=  (Height*1.0) / DL_image_height    </l>
+<c></c>
+<l>Sort_SemanticSegmentation_Obj (DLResult, ClassIds, ClassNames, confident_score, zoom_image_factor_width, zoom_image_factor_height, Width, Height, out_DictHandle_all_object_detected)</l>
+<c>    </c>
+</body>
+<docu id="main">
+<parameters/>
+</docu>
+</procedure>
+<procedure name="Sort_Segmentation_Obj">
+<interface>
+<ic>
+<par name="DictHandle" base_type="ctrl" dimension="0"/>
+<par name="zoom_image_factor_width" base_type="ctrl" dimension="0"/>
+<par name="zoom_image_factor_height" base_type="ctrl" dimension="0"/>
+<par name="image_width" base_type="ctrl" dimension="0"/>
+<par name="image_height" base_type="ctrl" dimension="0"/>
+</ic>
+<oc>
+<par name="out_DictHandle_all_object_detected" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<l>DictHandle_all_object_detected := []</l>
+<l>out_DictHandle_all_object_detected := []</l>
+<l>get_dict_param (DictHandle, 'key_exists', 'bbox_class_id', Key_Exist)</l>
+<l>if (Key_Exist)</l>
+<c>    * key exist</c>
+<l>    try</l>
+<c>        * get each object from Result Dict</c>
+<l>        get_dict_tuple (DictHandle, 'bbox_class_id', Class_ID)</l>
+<l>        get_dict_tuple (DictHandle, 'bbox_class_name', Class_Number)</l>
+<l>        get_dict_tuple (DictHandle, 'bbox_confidence', Class_Confidence)</l>
+<l>        get_dict_tuple (DictHandle, 'bbox_row1', Class_Row1)</l>
+<l>        get_dict_tuple (DictHandle, 'bbox_col1', Class_Col1)</l>
+<l>        get_dict_tuple (DictHandle, 'bbox_row2', Class_Row2)</l>
+<l>        get_dict_tuple (DictHandle, 'bbox_col2', Class_Col2)</l>
+<l>        get_dict_object (Object_detected, DictHandle, 'mask')</l>
+<c></c>
+<c>        * resize the image follow the Image input size.</c>
+<l>        Class_Row1 := Class_Row1 * zoom_image_factor_height</l>
+<l>        Class_Row2 := Class_Row2 * zoom_image_factor_height</l>
+<l>        Class_Col1 := Class_Col1 * zoom_image_factor_width</l>
+<l>        Class_Col2 := Class_Col2 * zoom_image_factor_width</l>
+<c></c>
+<c></c>
+<c>        * Split and sort the objects for one dictionary: one object detected.</c>
+<l>        for Index := 0 to |Class_Number|-1 by 1</l>
+<l>            create_dict (DictHandle_object_selected)</l>
+<l>            set_dict_tuple (DictHandle_object_selected, 'bbox_class_id', Class_ID[Index])</l>
+<l>            set_dict_tuple (DictHandle_object_selected, 'bbox_class_name', Class_Number[Index])</l>
+<l>            set_dict_tuple (DictHandle_object_selected, 'bbox_confidence', Class_Confidence[Index])</l>
+<c></c>
+<l>            set_dict_tuple (DictHandle_object_selected, 'bbox_row1', Class_Row1[Index])</l>
+<l>            set_dict_tuple (DictHandle_object_selected, 'bbox_col1', Class_Col1[Index])</l>
+<l>            set_dict_tuple (DictHandle_object_selected, 'bbox_row2', Class_Row2[Index])</l>
+<l>            set_dict_tuple (DictHandle_object_selected, 'bbox_col2', Class_Col2[Index])</l>
+<c></c>
+<l>            try</l>
+<c>                * overpaint the region to image uint2 (0 or 1)</c>
+<l>*                 gen_image_const (Image_region, 'uint2', image_width, image_height)</l>
+<l>                gen_image_const (Image_region, 'byte', image_width, image_height)</l>
+<l>                select_obj (Object_detected, ObjectMaskSelected, Index+1)</l>
+<l>                zoom_region (ObjectMaskSelected, ObjectMaskSelected_zoom, zoom_image_factor_width, zoom_image_factor_height)</l>
+<l>                get_region_points (ObjectMaskSelected_zoom, Rows, Columns)</l>
+<l>                tuple_gen_const (|Rows|, 255, Newtuple)</l>
+<l>                set_grayval (Image_region, Rows, Columns, Newtuple)</l>
+<l>                set_dict_object (Image_region, DictHandle_object_selected, 'mask_image')</l>
+<l>            catch (Exception)</l>
+<c>                * wrong Case</c>
+<l>*                 gen_image_const (Image_region, 'uint2', image_width, image_height)</l>
+<l>                gen_image_const (Image_region, 'byte', image_width, image_height)</l>
+<l>                set_dict_object (Image_region, DictHandle_object_selected, 'mask_image')</l>
+<l>            endtry</l>
+<c></c>
+<l>            DictHandle_all_object_detected := [DictHandle_all_object_detected,DictHandle_object_selected]</l>
+<l>        endfor</l>
+<l>        DictHandle_object_selected := []</l>
+<l>        out_DictHandle_all_object_detected := DictHandle_all_object_detected</l>
+<l>    catch (Exception)</l>
+<c>        * Something wrong</c>
+<l>        DictHandle_object_selected := []</l>
+<l>        out_DictHandle_all_object_detected := []</l>
+<l>    endtry</l>
+<l>else</l>
+<c>    * Not found any key 'bbox_class_id' so It mean not have any Object detected</c>
+<l>    DictHandle_object_selected := []</l>
+<l>    out_DictHandle_all_object_detected := []</l>
+<l>endif</l>
+<l>return ()</l>
+</body>
+<docu id="Sort_Segmentation_Obj">
+<parameters>
+<parameter id="DictHandle"/>
+<parameter id="image_height"/>
+<parameter id="image_width"/>
+<parameter id="out_DictHandle_all_object_detected"/>
+<parameter id="zoom_image_factor_height"/>
+<parameter id="zoom_image_factor_width"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="Sort_SemanticSegmentation_Obj">
+<interface>
+<ic>
+<par name="DictHandle" base_type="ctrl" dimension="0"/>
+<par name="ClassIds" base_type="ctrl" dimension="0"/>
+<par name="ClassNames" base_type="ctrl" dimension="0"/>
+<par name="confident_score" base_type="ctrl" dimension="0"/>
+<par name="zoom_image_factor_width" base_type="ctrl" dimension="0"/>
+<par name="zoom_image_factor_height" base_type="ctrl" dimension="0"/>
+<par name="image_width" base_type="ctrl" dimension="0"/>
+<par name="image_height" base_type="ctrl" dimension="0"/>
+</ic>
+<oc>
+<par name="out_DictHandle_all_object_detected" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<c>* Input:</c>
+<c>*   DictHandle</c>
+<c>*   ClassIds</c>
+<c>*   ClassNames</c>
+<c>*   confident_score</c>
+<c>*   ZoomWidthFactor, ZoomHeightFactor</c>
+<c>*   ImageWidth, ImageHeight</c>
+<c></c>
+<c>* Output:</c>
+<c>*   out_DictHandle_all_object_detected</c>
+<c></c>
+<l>DictHandle_all_object_detected := []</l>
+<c></c>
+<c>* ตรวจสอบ key</c>
+<l>get_dict_param (DictHandle, 'key_exists', 'segmentation_image', Key_Exist1)</l>
+<l>get_dict_param (DictHandle, 'key_exists', 'segmentation_confidence', Key_Exist2)</l>
+<c></c>
+<c></c>
+<l>if (Key_Exist1 and Key_Exist2)</l>
+<c></c>
+<c>    * วนลูปแต่ละ Class ที่สนใจ</c>
+<l>    tuple_length (ClassIds, NumClasses)</l>
+<c></c>
+<c>    * ดึง segmentation mask และ confidence images</c>
+<l>    get_dict_object (Segmentation_Images, DictHandle, 'segmentation_image')</l>
+<l>    get_dict_object (Confidence_Images, DictHandle, 'segmentation_confidence')</l>
+<c></c>
+<l>    threshold (Confidence_Images, confident_score_Region, confident_score, 1.0)</l>
+<l>    for Index := 0 to NumClasses - 1 by 1</l>
+<l>        ClassID := ClassIds[Index]</l>
+<c>        * ใช้ threshold คลุม range class_id ±1</c>
+<l>*         threshold (Segmentation_Images, Region_threshold, ClassID - 1, ClassID + 1)</l>
+<l>        threshold (Segmentation_Images, Region_threshold, ClassID, ClassID)</l>
+<l>        intersection (Region_threshold, confident_score_Region, Region_Intersection)</l>
+<l>        area_center (Region_Intersection, Area, Row, Column)</l>
+<l>        if (Area &gt; 0)</l>
+<l>            create_dict (DictHandle_object_selected)</l>
+<l>            set_dict_tuple (DictHandle_object_selected, 'bbox_class_id', ClassIds[Index])</l>
+<l>            set_dict_tuple (DictHandle_object_selected, 'bbox_class_name', ClassNames[Index])</l>
+<c>            </c>
+<c>            </c>
+<l>              try</l>
+<c>                * overpaint the region to image uint2 (0 or 1)</c>
+<c></c>
+<l>                gen_image_const (Image_region, 'byte', image_width, image_height)</l>
+<l>                zoom_region (Region_threshold, ObjectMaskSelected_zoom, zoom_image_factor_width, zoom_image_factor_height)</l>
+<l>                get_region_points (ObjectMaskSelected_zoom, Rows, Columns)</l>
+<l>                tuple_gen_const (|Rows|, 255, Newtuple)</l>
+<l>                set_grayval (Image_region, Rows, Columns, Newtuple)</l>
+<l>                set_dict_object (Image_region, DictHandle_object_selected, 'mask_image')</l>
+<l>            catch (Exception)</l>
+<c>                * wrong Case</c>
+<l>                gen_image_const (Image_region, 'byte', image_width, image_height)</l>
+<l>                set_dict_object (Image_region, DictHandle_object_selected, 'mask_image')</l>
+<l>            endtry</l>
+<c>            </c>
+<l>*             set_dict_object (Region_threshold_zoom, DictHandle_object_selected, 'mask_image')</l>
+<c></c>
+<l>            DictHandle_all_object_detected := [DictHandle_all_object_detected,DictHandle_object_selected]</l>
+<l>        endif</l>
+<c></c>
+<l>    endfor</l>
+<c></c>
+<l>    DictHandle_object_selected := []</l>
+<l>    out_DictHandle_all_object_detected := DictHandle_all_object_detected</l>
+<c>    * หาวัตถุที่เจอ</c>
+<c></c>
+<c></c>
+<l>endif</l>
+<c></c>
+<l>return ()</l>
+</body>
+<docu id="Sort_SemanticSegmentation_Obj">
+<parameters>
+<parameter id="ClassIds"/>
+<parameter id="ClassNames"/>
+<parameter id="DictHandle"/>
+<parameter id="confident_score"/>
+<parameter id="image_height"/>
+<parameter id="image_width"/>
+<parameter id="out_DictHandle_all_object_detected"/>
+<parameter id="zoom_image_factor_height"/>
+<parameter id="zoom_image_factor_width"/>
+</parameters>
+</docu>
+</procedure>
+</hdevelop>

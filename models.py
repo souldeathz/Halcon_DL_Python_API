@@ -28,11 +28,6 @@ class ExpiringDict(OrderedDict):
 class DataInfoItem(BaseModel):
     Bbox_Class_ID: int
     Bbox_Class_Name: str
-    Bbox_Confidence: float
-    Bbox_Row1: float
-    Bbox_Col1: float
-    Bbox_Row2: float
-    Bbox_Col2: float
     Mask_image_base64: str
     Mask_image_preview_url: str = None
 

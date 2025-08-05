@@ -27,7 +27,7 @@ MODEL_BASE_PATH = config["MODEL_BASE_PATH"]
 
 # ------------------ HALCON PROCEDURE INIT ------------------
 
-hdev_path = os.path.join(base_dir, 'Engine', 'Process_Instant_Segmentation.hdev')
+hdev_path = os.path.join(base_dir, 'Engine', 'Process.hdev')
 program = ha.HDevProgram(hdev_path)
 
 proc_preprocess_dl_samples = ha.HDevProcedure.load_local(program, 'preprocess_dl_samples')
@@ -39,7 +39,7 @@ create_dl_preprocess_param_from_model_call = ha.HDevProcedureCall(create_dl_prep
 proc_gen_dl_samples_from_images = ha.HDevProcedure.load_local(program, 'gen_dl_samples_from_images')
 proc_gen_dl_samples_from_images_call = ha.HDevProcedureCall(proc_gen_dl_samples_from_images)
 
-proc_Sort_Segmentation_Obj = ha.HDevProcedure.load_local(program, 'Sort_SemanticSegmentation_Obj')
+proc_Sort_Segmentation_Obj = ha.HDevProcedure.load_local(program, 'Sort_Segmentation_Obj')
 proc_Sort_Segmentation_Obj_call = ha.HDevProcedureCall(proc_Sort_Segmentation_Obj)
 
 # ------------------ SHARED CACHE ------------------
@@ -103,8 +103,7 @@ def process_inference(image_bytes: bytes, model: str, client_id: str, file_ext: 
         print(f"Image size: {width}x{height}")
         dl_image_width = ha.get_dl_model_param(model_handle, 'image_width')[0]
         dl_image_height = ha.get_dl_model_param(model_handle, 'image_height')[0]
-        dl_ClassIds = ha.get_dl_model_param (model_handle, 'class_ids')
-        dl_ClassNames = ha.get_dl_model_param (model_handle, 'class_names')
+
         # Image_const = ha.gen_image_const("byte", width[0], height[0])
         print(f"DL Model size: {dl_image_width}x{dl_image_height}")
         zoom_w = width[0] / dl_image_width
@@ -112,9 +111,6 @@ def process_inference(image_bytes: bytes, model: str, client_id: str, file_ext: 
         print(f"Zoom factors: {zoom_w}, {zoom_h}")
 
         proc_Sort_Segmentation_Obj_call.set_input_control_param_by_name("DictHandle", results)
-        proc_Sort_Segmentation_Obj_call.set_input_control_param_by_name("ClassIds", dl_ClassIds)
-        proc_Sort_Segmentation_Obj_call.set_input_control_param_by_name("ClassNames", dl_ClassNames)
-        proc_Sort_Segmentation_Obj_call.set_input_control_param_by_name("confident_score", 0.9)
         proc_Sort_Segmentation_Obj_call.set_input_control_param_by_name("zoom_image_factor_width", zoom_w)
         proc_Sort_Segmentation_Obj_call.set_input_control_param_by_name("zoom_image_factor_height", zoom_h)
         proc_Sort_Segmentation_Obj_call.set_input_control_param_by_name("image_width", width[0])
@@ -153,6 +149,11 @@ def process_inference(image_bytes: bytes, model: str, client_id: str, file_ext: 
                 item = {
                     "Bbox_Class_ID": int(ha.get_dict_tuple(dict_selected, 'bbox_class_id')[0]),
                     "Bbox_Class_Name": ha.get_dict_tuple(dict_selected, 'bbox_class_name')[0],
+                    "Bbox_Confidence": float(ha.get_dict_tuple(dict_selected, 'bbox_confidence')[0]),
+                    "Bbox_Row1": float(ha.get_dict_tuple(dict_selected, 'bbox_row1')[0]),
+                    "Bbox_Col1": float(ha.get_dict_tuple(dict_selected, 'bbox_col1')[0]),
+                    "Bbox_Row2": float(ha.get_dict_tuple(dict_selected, 'bbox_row2')[0]),
+                    "Bbox_Col2": float(ha.get_dict_tuple(dict_selected, 'bbox_col2')[0]),
                     "Mask_image_base64": mask_base64
                 }
 

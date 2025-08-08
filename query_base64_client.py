@@ -1,0 +1,86 @@
+import base64
+import requests
+import cv2
+import numpy as np
+
+# ====== กำหนดค่าที่นี่ ======
+API_URL = "http://127.0.0.1:8000/query-base64"
+IMAGE_PATH = r"C:\Users\user\Desktop\crack\pill_magnesium_crack_003.png"
+MODEL_NAME = "segment_pill_defects"
+CLIENT_ID = "Client123"
+# ===========================
+
+# อ่านไฟล์ภาพและแปลงเป็น Base64
+with open(IMAGE_PATH, "rb") as f:
+    image_bytes = f.read()
+    image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+
+payload = {"image_base64": image_base64, "model": MODEL_NAME, "client_id": CLIENT_ID}
+
+# call API
+resp = requests.post(API_URL, json=payload)
+resp.raise_for_status()
+result = resp.json()
+
+print("Status:", result.get("Status_Code"), result.get("Status_Message"))
+print("Processing Time:", result.get("Processing_Time"), "ms")
+print("Objects detected:", len(result.get("DataInfo", [])))
+print(f" Detected classes: {[item.get('Bbox_Class_Name') for item in result.get('DataInfo', [])]}")
+
+# --- Prepare images ---
+orig = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
+if orig is None:
+    raise RuntimeError("Failed to decode original image bytes")
+
+H, W = orig.shape[:2]
+overlay = orig.copy()
+
+# พาเล็ตสีแบบ deterministic (BGR)
+palette = [
+    (255, 0, 0),     # blue
+    (0, 255, 0),     # green
+    (0, 0, 255),     # red
+    (255, 255, 0),   # cyan-ish
+    (255, 0, 255),   # magenta
+    (0, 255, 255),   # yellow
+    (128, 0, 255),   # purple-ish
+    (0, 128, 255),   # orange-ish
+]
+
+alpha = 0.45  # ความทึบของสี overlay
+
+# รวม overlay จากทุก mask (ใช้เฉพาะพิกเซลที่ == 255)
+for idx, item in enumerate(result.get("DataInfo", [])):
+    mask_b64 = item.get("Mask_image_base64")
+    if not mask_b64:
+        continue
+
+    mask_bytes = base64.b64decode(mask_b64)
+    mask = cv2.imdecode(np.frombuffer(mask_bytes, np.uint8), cv2.IMREAD_GRAYSCALE)
+    if mask is None:
+        continue
+
+    # resize ให้พอดีกับภาพต้นฉบับ (กันพลาด)
+    if mask.shape[:2] != (H, W):
+        mask = cv2.resize(mask, (W, H), interpolation=cv2.INTER_NEAREST)
+
+    # *** ใช้เฉพาะบริเวณที่เป็น 255 ***
+    mask_255 = (mask == 255)
+
+    if not np.any(mask_255):
+        continue
+
+    color = palette[idx % len(palette)]
+    color_layer = np.zeros_like(orig)
+    color_layer[mask_255] = color
+
+    # blend เฉพาะบริเวณที่ mask == 255
+    overlay[mask_255] = cv2.addWeighted(color_layer[mask_255], alpha,
+                                        overlay[mask_255], 1 - alpha, 0)
+
+# แสดงแค่ 2 หน้าต่าง: Original + Overlay
+cv2.imshow("Original", orig)
+cv2.imshow("Overlay (threshold==255 only)", overlay)
+print("Press any key in an image window to close...")
+cv2.waitKey(0)
+cv2.destroyAllWindows()

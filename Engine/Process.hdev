@@ -6,6 +6,9 @@
 <l>read_image (Image, 'pill_bag/pill_bag_001.png')</l>
 <l>read_dl_model ('DL_Learning_Segmentation_Class_For_server/DLModel/Pill_segmentation.hdl', DLModelHandle)</l>
 <c></c>
+<l>set_dl_model_param (DLModelHandle, 'runtime', 'cpu')</l>
+<l>set_dl_model_param (DLModelHandle, 'batch_size', 1)</l>
+<c></c>
 <l>create_dl_preprocess_param_from_model (DLModelHandle, 'none', 'full_domain', [], [], [], DLPreprocessParam)</l>
 <c></c>
 <l>gen_dl_samples_from_images (Image, DLSampleInference)</l>

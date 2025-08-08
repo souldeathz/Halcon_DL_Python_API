@@ -15,21 +15,28 @@ from models import ExpiringDict
 
 # ------------------ CONFIG & PATH SETUP ------------------
 
+# Absolute folder of this file (stable even if cwd changes)
 base_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Temp working folder for transient files (input images, masks before encoding)
 TEMP_FOLDER = os.path.join(base_dir, "Temp")
 os.makedirs(TEMP_FOLDER, exist_ok=True)
 
+# Load config (expects config.json next to this file)
 config_path = os.path.join(base_dir, "config.json")
 with open(config_path, "r") as f:
     config = json.load(f)
 
+# Base folder where .hdl models live; model name is mapped to {MODEL_BASE_PATH}/{model}.hdl
 MODEL_BASE_PATH = config["MODEL_BASE_PATH"]
 
 # ------------------ HALCON PROCEDURE INIT ------------------
 
+# HDevelop program that contains all required procedures for segmentation pipeline
 hdev_path = os.path.join(base_dir, 'Engine', 'Process_Instant_Segmentation.hdev')
 program = ha.HDevProgram(hdev_path)
 
+# Prepare reusable HDevProcedureCall instances (created once, reused per request)
 proc_preprocess_dl_samples = ha.HDevProcedure.load_local(program, 'preprocess_dl_samples')
 proc_preprocess_dl_samples_call = ha.HDevProcedureCall(proc_preprocess_dl_samples)
 
@@ -39,12 +46,17 @@ create_dl_preprocess_param_from_model_call = ha.HDevProcedureCall(create_dl_prep
 proc_gen_dl_samples_from_images = ha.HDevProcedure.load_local(program, 'gen_dl_samples_from_images')
 proc_gen_dl_samples_from_images_call = ha.HDevProcedureCall(proc_gen_dl_samples_from_images)
 
+# Post-processing procedure: sorts/filters segmentation objects and returns per-object dicts (with mask_image, bbox, etc.)
 proc_Sort_Segmentation_Obj = ha.HDevProcedure.load_local(program, 'Sort_SemanticSegmentation_Obj')
 proc_Sort_Segmentation_Obj_call = ha.HDevProcedureCall(proc_Sort_Segmentation_Obj)
 
 # ------------------ SHARED CACHE ------------------
 
+# Map: model_file_path -> DLModelHandle (avoid reloading .hdl every request)
 model_cache = {}
+
+# Short-lived storage for mask previews (HTML endpoint reads from here)
+# Default TTL is defined in models.ExpiringDict (300s unless changed)
 mask_store = ExpiringDict()
 
 # ------------------ MAIN FUNCTION ------------------
@@ -93,6 +105,10 @@ def process_inference(image_bytes: bytes, model: str, client_id: str, file_ext: 
         proc_preprocess_dl_samples_call.set_input_control_param_by_name("DLSampleBatch", dl_sample_batch)
         proc_preprocess_dl_samples_call.set_input_control_param_by_name("DLPreprocessParam", dl_preprocess_param)
         proc_preprocess_dl_samples_call.execute()
+
+        # Set model parameters
+        ha.set_dl_model_param(model_handle, 'runtime', 'cpu')
+        ha.set_dl_model_param(model_handle, 'batch_size', 1)
 
         results = ha.apply_dl_model(model_handle, dl_sample_batch, [])
 

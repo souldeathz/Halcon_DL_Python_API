@@ -3,14 +3,14 @@ import requests
 import cv2
 import numpy as np
 
-# ====== กำหนดค่าที่นี่ ======
+# ====== Set values here ======
 API_URL = "http://127.0.0.1:8000/query-base64"
 IMAGE_PATH = r"C:\Users\user\Desktop\crack\pill_magnesium_crack_003.png"
 MODEL_NAME = "segment_pill_defects"
 CLIENT_ID = "Client123"
 # ===========================
 
-# อ่านไฟล์ภาพและแปลงเป็น Base64
+# Read the image file and convert it to Base64
 with open(IMAGE_PATH, "rb") as f:
     image_bytes = f.read()
     image_base64 = base64.b64encode(image_bytes).decode("utf-8")
@@ -35,7 +35,7 @@ if orig is None:
 H, W = orig.shape[:2]
 overlay = orig.copy()
 
-# พาเล็ตสีแบบ deterministic (BGR)
+# Deterministic color palette (BGR)
 palette = [
     (255, 0, 0),     # blue
     (0, 255, 0),     # green
@@ -47,9 +47,9 @@ palette = [
     (0, 128, 255),   # orange-ish
 ]
 
-alpha = 0.45  # ความทึบของสี overlay
+alpha = 0.45  # Opacity of the overlay color
 
-# รวม overlay จากทุก mask (ใช้เฉพาะพิกเซลที่ == 255)
+# Combine overlay from all masks (use only pixels with value == 255)
 for idx, item in enumerate(result.get("DataInfo", [])):
     mask_b64 = item.get("Mask_image_base64")
     if not mask_b64:
@@ -60,11 +60,11 @@ for idx, item in enumerate(result.get("DataInfo", [])):
     if mask is None:
         continue
 
-    # resize ให้พอดีกับภาพต้นฉบับ (กันพลาด)
+    # Resize to match the original image (as a safeguard)
     if mask.shape[:2] != (H, W):
         mask = cv2.resize(mask, (W, H), interpolation=cv2.INTER_NEAREST)
 
-    # *** ใช้เฉพาะบริเวณที่เป็น 255 ***
+    # *** Use only the areas where pixel value == 255 ***
     mask_255 = (mask == 255)
 
     if not np.any(mask_255):
@@ -74,11 +74,11 @@ for idx, item in enumerate(result.get("DataInfo", [])):
     color_layer = np.zeros_like(orig)
     color_layer[mask_255] = color
 
-    # blend เฉพาะบริเวณที่ mask == 255
+    # Blend only the areas where mask == 255
     overlay[mask_255] = cv2.addWeighted(color_layer[mask_255], alpha,
                                         overlay[mask_255], 1 - alpha, 0)
 
-# แสดงแค่ 2 หน้าต่าง: Original + Overlay
+# Display only 2 windows: Original + Overlay
 cv2.imshow("Original", orig)
 cv2.imshow("Overlay (threshold==255 only)", overlay)
 print("Press any key in an image window to close...")
